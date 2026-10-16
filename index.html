@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProKTV 專業點歌系統 (YouTube 核心)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- 引入 Material Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #020617 80%);
+            color: #f8fafc;
+        }
+        
+        /* 霓虹發光效果 */
+        .neon-border {
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.3), inset 0 0 10px rgba(56, 189, 248, 0.2);
+            border: 1px solid rgba(56, 189, 248, 0.5);
+        }
+        .neon-text {
+            text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+        }
+        .neon-btn-red {
+            box-shadow: 0 0 15px rgba(225, 29, 72, 0.4);
+            border: 1px solid #fda4af;
+        }
+        
+        /* 滾動條美化 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        /* YT 播放器滿版容器 */
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 */
+            height: 0;
+            background: #000;
+            border-radius: 0.75rem;
+            overflow: hidden;
+        }
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* 防止使用者點擊 YT 介面暫停，強迫用我們系統的按鈕 */
+        }
+        
+        /* 玻璃擬態背景 */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col select-none">
+
+    <!-- 頂部狀態列 (跑馬燈與資訊) -->
+    <header class="h-12 bg-black/80 border-b border-cyan-900/50 flex items-center px-4 justify-between z-10 shrink-0">
+        <div class="flex items-center gap-3">
+            <span class="material-icons text-cyan-400">mic_external_on</span>
+            <h1 class="text-xl font-black italic tracking-widest text-cyan-400 neon-text">ProKTV</h1>
+            <span class="bg-blue-600/30 text-blue-300 text-xs px-2 py-0.5 rounded border border-blue-500/50 ml-2">Web Edition</span>
+        </div>
+        
+        <!-- 跑馬燈 -->
+        <div class="flex-1 overflow-hidden mx-8 text-rose-400 font-bold text-sm">
+            <marquee scrollamount="5">歡迎光臨 ProKTV！本系統目前為 YouTube 測試版，支援貼上網址點歌、插播功能。請盡情歡唱！</marquee>
+        </div>
+        
+        <div id="clock" class="text-slate-300 font-mono text-lg font-bold">00:00</div>
+    </header>
+
+    <!-- 中間主要內容區 -->
+    <main class="flex-1 flex overflow-hidden p-4 gap-4">
+        
+        <!-- 左側：螢幕區 & 點歌面板 -->
+        <div class="w-2/3 flex flex-col gap-4 h-full">
+            
+            <!-- 上半部：影片播放螢幕 -->
+            <div class="w-full neon-border rounded-xl bg-black relative shadow-2xl">
+                <div class="video-wrapper">
+                    <div id="yt-player"></div>
+                </div>
+                <!-- 狀態浮水印 (模擬 KTV 畫面上的字) -->
+                <div class="absolute top-4 left-4 text-white/80 text-xl font-bold drop-shadow-md z-10">
+                    🎵 正在播放: <span id="now-playing-title" class="text-cyan-300">系統待機中...</span>
+                </div>
+            </div>
+
+            <!-- 下半部：點歌系統面板 -->
+            <div class="flex-1 glass-panel rounded-xl flex flex-col overflow-hidden shadow-xl relative">
+                
+                <!-- 頁籤列 -->
+                <div class="flex bg-slate-900/80 border-b border-slate-700">
+                    <button class="flex-1 py-3 font-bold text-cyan-400 border-b-2 border-cyan-400 bg-slate-800/50">🔥 熱門點播測試區</button>
+                    <button class="flex-1 py-3 font-bold text-slate-400 hover:text-white transition-colors" onclick="document.getElementById('yt-input').focus()">🔗 貼上 YouTube 網址</button>
+                </div>
+                
+                <!-- 內容區 -->
+                <div class="flex-1 p-4 overflow-y-auto flex flex-col gap-6">
+                    
+                    <!-- 網址輸入區 -->
+                    <div class="bg-slate-800/80 p-4 rounded-lg border border-slate-600 flex gap-2 items-center">
+                        <span class="material-icons text-slate-400">link</span>
+                        <input type="text" id="yt-input" placeholder="請貼上 YouTube 影片網址 (例如: https://youtu.be/...)" class="flex-1 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+                        <input type="text" id="yt-name" placeholder="歌曲名稱 (選填)" class="w-1/4 bg-slate-900 border border-slate-700 rounded px-3 py-2 text-white focus:outline-none focus:border-cyan-500">
+                        <button onclick="addCustomYT()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 px-6 rounded shadow-[0_0_10px_rgba(8,145,178,0.5)] transition-all">點歌</button>
+                    </div>
+
+                    <!-- 內建測試歌單 (一鍵點歌) -->
+                    <div>
+                        <h2 class="text-slate-300 font-bold mb-3 flex items-center gap-2">
+                            <span class="material-icons text-rose-400 text-sm">local_fire_department</span> 一鍵測試歌單 (點擊直接加入排隊)
+                        </h2>
+                        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3" id="mock-songs-container">
+                            <!-- JS 動態生成按鈕 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：排隊歌單 (已點歌曲) -->
+        <div class="w-1/3 glass-panel rounded-xl flex flex-col overflow-hidden border-t-4 border-t-cyan-500 shadow-2xl">
+            <div class="bg-slate-900/80 p-4 border-b border-slate-700 flex justify-between items-center shrink-0">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span class="material-icons text-cyan-400">queue_music</span> 已點歌曲
+                </h2>
+                <span class="bg-slate-700 text-cyan-300 text-xs font-bold px-3 py-1 rounded-full"><span id="queue-count">0</span> 首</span>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-2">
+                <ul id="queue-list" class="flex flex-col gap-2">
+                    <!-- 歌單項目 -->
+                    <div class="h-full flex flex-col items-center justify-center text-slate-500 gap-2 opacity-50 mt-20">
+                        <span class="material-icons text-5xl">music_off</span>
+                        <p>目前沒有排隊歌曲</p>
+                        <p class="text-sm">請從左側面板點歌</p>
+                    </div>
+                </ul>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 底部：KTV 專業控制台 -->
+    <footer class="h-24 bg-slate-900 border-t border-slate-700 flex items-center justify-between px-8 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] shrink-0 z-10 relative">
+        
+        <!-- 左側控制 (重唱/原伴唱) -->
+        <div class="flex gap-4">
+            <button onclick="replaySong()" class="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-600 flex flex-col items-center justify-center text-slate-300 transition-colors shadow-lg active:scale-95">
+                <span class="material-icons mb-1">replay</span>
+                <span class="text-[10px] font-bold">重唱</span>
+            </button>
+            <button class="w-16 h-16 rounded-full bg-slate-800 border border-slate-600 flex flex-col items-center justify-center text-slate-500 cursor-not-allowed opacity-50 relative group">
+                <span class="material-icons mb-1">mic</span>
+                <span class="text-[10px] font-bold">原/伴唱</span>
+                <span class="absolute -top-8 bg-black text-white text-xs p-1 rounded hidden group-hover:block whitespace-nowrap">YouTube 版無法去人聲</span>
+            </button>
+        </div>
+
+        <!-- 中間主控 (播放/切歌) -->
+        <div class="flex gap-6 items-center">
+            <button onclick="togglePlay()" class="w-20 h-20 rounded-full bg-gradient-to-b from-cyan-500 to-blue-700 neon-border flex flex-col items-center justify-center text-white transition-transform hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(6,182,212,0.5)]">
+                <span id="play-icon" class="material-icons text-3xl mb-0.5">pause</span>
+                <span id="play-text" class="text-xs font-bold">暫停</span>
+            </button>
+            
+            <button onclick="playNext()" class="w-24 h-20 rounded-2xl bg-gradient-to-b from-rose-500 to-red-700 neon-btn-red flex flex-col items-center justify-center text-white transition-transform hover:scale-105 active:scale-95">
+                <span class="material-icons text-3xl mb-0.5">skip_next</span>
+                <span class="text-sm font-bold tracking-widest">切歌</span>
+            </button>
+        </div>
+
+        <!-- 右側控制 (音量) -->
+        <div class="flex items-center gap-3 bg-slate-800 px-4 py-3 rounded-full border border-slate-700">
+            <span class="material-icons text-slate-400">volume_down</span>
+            <input type="range" id="volume-slider" min="0" max="100" value="100" oninput="changeVolume(this.value)" class="w-32 accent-cyan-500">
+            <span class="material-icons text-slate-400">volume_up</span>
+        </div>
+
+    </footer>
+
+    <script>
+        // --- 時鐘邏輯 ---
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit' });
+        }, 1000);
+
+        // --- 內建模擬熱門歌單 ---
+        const mockSongs = [
+            { name: "七里香", artist: "周杰倫", ytId: "Bbp9ZaJT_eA" },
+            { name: "倒帶", artist: "蔡依林", ytId: "wJvEbz-A1hQ" },
+            { name: "死了都要愛", artist: "信樂團", ytId: "4uE-Mtye0z8" },
+            { name: "後來", artist: "劉若英", ytId: "qQEoZttq91U" },
+            { name: "痴心絕對", artist: "李聖傑", ytId: "x1cZ5I692Ew" },
+            { name: "如果你也聽說", artist: "張惠妹", ytId: "x0-u_yS7mHw" }
+        ];
+
+        // 生成按鈕
+        const mockContainer = document.getElementById('mock-songs-container');
+        mockSongs.forEach(song => {
+            const btn = document.createElement('button');
+            btn.className = "bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg p-3 text-left transition-colors flex flex-col shadow-md group";
+            btn.innerHTML = `
+                <span class="text-cyan-300 font-bold text-lg group-hover:text-cyan-200">${song.name}</span>
+                <span class="text-slate-400 text-sm mt-1">🎤 ${song.artist}</span>
+            `;
+            btn.onclick = () => addSongToQueue(song.name, song.artist, song.ytId);
+            mockContainer.appendChild(btn);
+        });
+
+        // --- YouTube API 邏輯 ---
+        let player;
+        let isPlayerReady = false;
+        let songQueue = [];
+        let currentSong = null;
+
+        // 載入 YT API
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        function onYouTubeIframeAPIReady() {
+            player = new YT.Player('yt-player', {
+                height: '100%',
+                width: '100%',
+                videoId: '',
+                playerVars: {
+                    'playsinline': 1,
+                    'controls': 0, // 隱藏 YT 控制列，強迫用系統的
+                    'disablekb': 1,
+                    'modestbranding': 1,
+                    'rel': 0,
+                    'autoplay': 1
+                },
+                events: {
+                    'onReady': () => { isPlayerReady = true; },
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerStateChange(event) {
+            // 播放結束
+            if (event.data === YT.PlayerState.ENDED) {
+                playNext();
+            }
+            // 同步播放暫停按鈕 UI
+            if (event.data === YT.PlayerState.PLAYING) {
+                document.getElementById('play-icon').innerText = 'pause';
+                document.getElementById('play-text').innerText = '暫停';
+            } else if (event.data === YT.PlayerState.PAUSED) {
+                document.getElementById('play-icon').innerText = 'play_arrow';
+                document.getElementById('play-text').innerText = '播放';
+            }
+        }
+
+        // --- 點歌與播放邏輯 ---
+
+        // 萃取 YT ID
+        function extractVideoID(url) {
+            const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+            return match ? match[1] : null;
+        }
+
+        // 自訂網址點歌
+        function addCustomYT() {
+            const url = document.getElementById('yt-input').value.trim();
+            const name = document.getElementById('yt-name').value.trim();
+            
+            if (!url) { alert("請輸入 YouTube 網址！"); return; }
+            const vid = extractVideoID(url);
+            if (!vid) { alert("無法辨識的 YouTube 網址！"); return; }
+
+            addSongToQueue(name || `自訂歌曲 (${vid})`, "自訂", vid);
+            
+            document.getElementById('yt-input').value = '';
+            document.getElementById('yt-name').value = '';
+        }
+
+        // 加入佇列
+        function addSongToQueue(name, artist, ytId, isInsert = false) {
+            const song = { id: Date.now(), name, artist, ytId };
+            
+            if (isInsert) {
+                songQueue.unshift(song); // 插播放到最前面
+            } else {
+                songQueue.push(song);
+            }
+            
+            updateQueueUI();
+
+            // 如果目前沒有歌在播，馬上播
+            if (!currentSong && isPlayerReady) {
+                playNext();
+            }
+        }
+
+        // 插播功能
+        window.insertSong = function(index) {
+            const song = songQueue.splice(index, 1)[0];
+            songQueue.unshift(song);
+            updateQueueUI();
+        }
+
+        // 刪除功能
+        window.removeSong = function(index) {
+            songQueue.splice(index, 1);
+            updateQueueUI();
+        }
+
+        // 播放下一首 (或切歌)
+        window.playNext = function() {
+            if (songQueue.length === 0) {
+                currentSong = null;
+                if(isPlayerReady) player.stopVideo();
+                document.getElementById('now-playing-title').innerText = "系統待機中...";
+                document.getElementById('now-playing-title').className = "text-slate-400";
+                return;
+            }
+
+            currentSong = songQueue.shift();
+            updateQueueUI();
+
+            document.getElementById('now-playing-title').innerText = `${currentSong.name} - ${currentSong.artist}`;
+            document.getElementById('now-playing-title').className = "text-cyan-300 neon-text";
+
+            if (isPlayerReady) {
+                player.loadVideoById(currentSong.ytId);
+            }
+        }
+
+        // 重唱
+        window.replaySong = function() {
+            if (isPlayerReady && currentSong) {
+                player.seekTo(0);
+                player.playVideo();
+            }
+        }
+
+        // 暫停/播放
+        window.togglePlay = function() {
+            if (!isPlayerReady || !currentSong) return;
+            const state = player.getPlayerState();
+            if (state === YT.PlayerState.PLAYING) {
+                player.pauseVideo();
+            } else {
+                player.playVideo();
+            }
+        }
+
+        // 音量
+        window.changeVolume = function(val) {
+            if (isPlayerReady) {
+                player.setVolume(val);
+            }
+        }
+
+        // 更新 UI
+        function updateQueueUI() {
+            const list = document.getElementById('queue-list');
+            document.getElementById('queue-count').innerText = songQueue.length;
+
+            if (songQueue.length === 0) {
+                list.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-slate-500 gap-2 opacity-50 mt-20">
+                        <span class="material-icons text-5xl">music_off</span>
+                        <p>目前沒有排隊歌曲</p>
+                        <p class="text-sm">請從左側面板點歌</p>
+                    </div>`;
+                return;
+            }
+
+            list.innerHTML = '';
+            songQueue.forEach((song, index) => {
+                const isNext = index === 0;
+                const li = document.createElement('li');
+                li.className = `flex justify-between items-center p-3 rounded-lg border ${isNext ? 'bg-cyan-900/40 border-cyan-500/50' : 'bg-slate-800/80 border-slate-700'}`;
+                
+                li.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full ${isNext ? 'bg-cyan-500' : 'bg-slate-700'} text-white flex items-center justify-center font-bold text-sm">
+                            ${index + 1}
+                        </div>
+                        <div class="truncate flex flex-col">
+                            <span class="text-white font-bold truncate">${song.name}</span>
+                            <span class="text-slate-400 text-xs truncate">${song.artist}</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 flex-shrink-0 ml-2">
+                        ${!isNext ? `<button onclick="insertSong(${index})" class="bg-amber-600 hover:bg-amber-500 text-white text-xs px-2 py-1.5 rounded flex items-center gap-1 shadow-md transition-colors"><span class="material-icons text-[14px]">vertical_align_top</span> 插播</button>` : `<span class="text-xs text-cyan-400 border border-cyan-500 px-2 py-1 rounded flex items-center">即將播放</span>`}
+                        <button onclick="removeSong(${index})" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2 py-1.5 rounded flex items-center gap-1 shadow-md transition-colors"><span class="material-icons text-[14px]">delete</span> 刪</button>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+    </script>
+</body>
+</html>
