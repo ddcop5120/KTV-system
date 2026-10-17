@@ -3,84 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ProKTV 雙模式 (點歌與全螢幕歡唱)</title>
+    <title>ProKTV 雙模式 (點歌台 + 全螢幕歡唱)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <style>
-        body { background-color: #0f172a; color: white; user-select: none; overflow: hidden; font-family: sans-serif; }
-        /* 隱藏滾動條 */
-        ::-webkit-scrollbar { width: 6px; }
+        body { background-color: #0f172a; color: white; user-select: none; overflow: hidden; font-family: 'Noto Sans TC', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         
         /* 點歌台模式 */
-        #selection-mode { display: flex; flex-direction: column; height: 100vh; }
+        #selection-mode { display: flex; flex-direction: column; height: 100vh; background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #020617 100%); }
         
         /* KTV 全螢幕模式 */
         #ktv-mode { display: none; position: fixed; inset: 0; background: black; z-index: 50; }
         #yt-player-container { width: 100%; height: 100%; pointer-events: none; }
         
         /* 螢幕提示 (Toast) */
-        .toast { position: absolute; top: 10%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); border: 2px solid #06b6d4; color: #22d3ee; padding: 15px 30px; border-radius: 50px; font-size: 24px; font-weight: bold; opacity: 0; transition: opacity 0.3s; z-index: 100; text-shadow: 0 0 10px #06b6d4; }
+        .toast { position: absolute; top: 10%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); border: 2px solid #06b6d4; color: #22d3ee; padding: 15px 40px; border-radius: 50px; font-size: 28px; font-weight: bold; opacity: 0; transition: opacity 0.3s; z-index: 100; text-shadow: 0 0 15px #06b6d4; }
         .toast.show { opacity: 1; }
 
         /* 全螢幕歌單面板 */
-        #overlay-queue { position: absolute; right: -400px; top: 0; bottom: 0; width: 350px; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(10px); border-left: 2px solid #06b6d4; transition: right 0.3s ease; z-index: 60; display: flex; flex-direction: column; }
+        #overlay-queue { position: absolute; right: -400px; top: 0; bottom: 0; width: 350px; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); border-left: 2px solid #06b6d4; transition: right 0.3s ease; z-index: 60; display: flex; flex-direction: column; }
         #overlay-queue.open { right: 0; }
         
         /* 快捷鍵提示表 */
-        .help-panel { position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; border: 1px solid #334155; font-size: 14px; color: #cbd5e1; z-index: 60; }
-        .help-key { display: inline-block; background: #334155; padding: 2px 8px; border-radius: 4px; color: white; font-weight: bold; margin-right: 5px; }
+        .help-panel { position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.7); padding: 15px; border-radius: 10px; border: 1px solid #334155; font-size: 15px; color: #cbd5e1; z-index: 60; transition: opacity 0.5s; }
+        .help-key { display: inline-block; background: #334155; padding: 4px 8px; border-radius: 6px; color: white; font-weight: bold; margin-right: 5px; box-shadow: 0 2px 0 #0f172a; }
     </style>
 </head>
 <body>
 
-    <!-- ================= 模式一：點歌台 ================= -->
+    <!-- ================= 模式一：點歌台 (沒有影片區塊) ================= -->
     <div id="selection-mode">
-        <header class="p-5 bg-slate-900 border-b border-slate-700 flex justify-between items-center shadow-lg">
-            <h1 class="text-3xl font-black text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]">🎤 ProKTV 點歌台</h1>
-            <button id="start-ktv-btn" onclick="startKTV()" disabled class="bg-rose-600 hover:bg-rose-500 disabled:bg-slate-600 disabled:text-slate-400 disabled:cursor-not-allowed text-white font-bold py-3 px-10 rounded-full shadow-[0_0_15px_rgba(225,29,72,0.6)] transition-all text-xl">
-                ▶ 開始歡唱
+        <header class="h-20 bg-slate-900 border-b border-cyan-900/50 flex justify-between items-center px-8 shadow-lg shrink-0">
+            <h1 class="text-3xl font-black text-cyan-400 drop-shadow-[0_0_10px_rgba(6,182,212,0.8)] flex items-center gap-3">
+                <span class="material-icons text-4xl">mic_external_on</span> ProKTV 專屬點歌台
+            </h1>
+            <button id="start-ktv-btn" onclick="startKTV()" disabled class="bg-rose-600 hover:bg-rose-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:shadow-none disabled:cursor-not-allowed text-white font-bold py-3 px-10 rounded-full shadow-[0_0_15px_rgba(225,29,72,0.6)] transition-all text-xl flex items-center gap-2">
+                <span class="material-icons">play_circle_filled</span> 開始歡唱
             </button>
         </header>
 
-        <div class="flex flex-1 overflow-hidden p-6 gap-6">
-            <!-- 左側點歌區 -->
-            <div class="flex-1 flex flex-col gap-6">
-                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-xl">
-                    <h2 class="text-xl font-bold mb-4 text-slate-200">🔗 貼上 YouTube 網址點歌</h2>
-                    <div class="flex gap-3">
-                        <input type="text" id="yt-input" placeholder="例如: https://youtu.be/Bbp9ZaJT_eA" class="flex-1 bg-slate-900 border border-slate-600 rounded px-4 text-white focus:outline-none focus:border-cyan-500 text-lg">
-                        <button id="add-btn" onclick="addSong()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-8 rounded shadow-lg transition-all text-lg flex items-center gap-2">
-                            <span class="material-icons">add</span> 加入
+        <div class="flex flex-1 overflow-hidden p-8 gap-8">
+            <!-- 左側大點歌區 -->
+            <div class="w-2/3 flex flex-col gap-6">
+                <!-- 網址輸入區 -->
+                <div class="bg-slate-800/80 p-8 rounded-2xl border border-slate-700 shadow-2xl backdrop-blur-sm shrink-0">
+                    <h2 class="text-2xl font-bold mb-6 text-slate-200 flex items-center gap-2">
+                        <span class="material-icons text-cyan-400">link</span> 貼上 YouTube 網址點歌
+                    </h2>
+                    <div class="flex gap-4">
+                        <input type="text" id="yt-input" placeholder="請在此貼上網址 (例如: https://youtu.be/...)" class="flex-1 bg-slate-900 border-2 border-slate-600 rounded-xl px-6 text-white focus:outline-none focus:border-cyan-500 text-xl transition-colors">
+                        <button id="add-btn" onclick="addSong()" class="bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-4 px-10 rounded-xl shadow-[0_0_15px_rgba(8,145,178,0.5)] transition-all text-xl flex items-center gap-2 shrink-0">
+                            <span class="material-icons">add_to_queue</span> 加入歌單
                         </button>
                     </div>
+                    <p class="text-slate-400 mt-4 text-sm">💡 系統會自動抓取 YouTube 影片標題作為歌名。建議尋找「歌名 + 伴奏」的網址。</p>
                 </div>
 
-                <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 flex-1 shadow-xl overflow-hidden flex flex-col">
-                    <h2 class="text-xl font-bold mb-4 text-slate-200 flex items-center gap-2"><span class="material-icons text-rose-400">local_fire_department</span> 一鍵測試歌單</h2>
-                    <div class="grid grid-cols-2 gap-4 overflow-y-auto" id="mock-songs"></div>
+                <!-- 測試歌單區 -->
+                <div class="bg-slate-800/80 p-8 rounded-2xl border border-slate-700 flex-1 shadow-2xl backdrop-blur-sm overflow-hidden flex flex-col">
+                    <h2 class="text-2xl font-bold mb-6 text-slate-200 flex items-center gap-2">
+                        <span class="material-icons text-rose-400">local_fire_department</span> 一鍵測試歌單
+                    </h2>
+                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto pr-2" id="mock-songs">
+                        <!-- JS 動態生成 -->
+                    </div>
                 </div>
             </div>
 
             <!-- 右側已點歌曲 -->
-            <div class="w-1/3 bg-slate-800 rounded-xl border border-slate-700 flex flex-col shadow-xl">
-                <div class="p-4 bg-slate-900 border-b border-slate-700 flex justify-between items-center rounded-t-xl">
-                    <h2 class="text-lg font-bold text-cyan-400">已點歌曲 (<span id="queue-count">0</span>)</h2>
+            <div class="w-1/3 bg-slate-800/80 rounded-2xl border border-slate-700 flex flex-col shadow-2xl backdrop-blur-sm overflow-hidden">
+                <div class="p-6 bg-slate-900 border-b border-slate-700 flex justify-between items-center shrink-0">
+                    <h2 class="text-2xl font-bold text-cyan-400 flex items-center gap-2">
+                        <span class="material-icons">format_list_numbered</span> 已點歌曲
+                    </h2>
+                    <span class="bg-slate-700 text-cyan-300 text-sm font-bold px-4 py-1.5 rounded-full"><span id="queue-count">0</span> 首</span>
                 </div>
-                <ul id="selection-queue-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2"></ul>
+                <ul id="selection-queue-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+                    <div class="h-full flex flex-col items-center justify-center text-slate-500 gap-4 opacity-50 mt-10">
+                        <span class="material-icons text-6xl">music_off</span>
+                        <p class="text-xl">目前沒有排隊歌曲</p>
+                    </div>
+                </ul>
             </div>
         </div>
     </div>
 
-    <!-- ================= 模式二：KTV 全螢幕 ================= -->
+    <!-- ================= 模式二：KTV 全螢幕歡唱 ================= -->
     <div id="ktv-mode">
         <!-- 播放器容器 -->
         <div id="yt-player-container"><div id="yt-player"></div></div>
         
-        <!-- 畫面浮水印 -->
-        <div class="absolute top-6 left-6 text-2xl font-bold drop-shadow-md z-10 bg-black/50 px-4 py-2 rounded text-cyan-300 border border-cyan-800">
-            ▶ <span id="now-playing-title"></span>
+        <!-- 畫面左上角浮水印 -->
+        <div class="absolute top-8 left-8 text-3xl font-bold drop-shadow-xl z-10 bg-black/60 px-6 py-3 rounded-xl text-cyan-300 border border-cyan-800/80 flex items-center gap-3">
+            <span class="material-icons text-rose-500 text-4xl">play_arrow</span>
+            <span id="now-playing-title">等待播放...</span>
         </div>
 
         <!-- 畫面中央提示 (Toast) -->
@@ -88,25 +107,23 @@
 
         <!-- 右側滑出式歌單 (按Q顯示) -->
         <div id="overlay-queue">
-            <div class="p-4 bg-slate-900 border-b border-slate-700 text-lg font-bold text-cyan-400 flex justify-between items-center">
+            <div class="p-6 bg-slate-900 border-b border-slate-700 text-xl font-bold text-cyan-400 flex justify-between items-center">
                 <span>排隊歌單</span>
-                <span class="text-sm text-slate-400">按 Q 關閉</span>
+                <span class="text-sm text-slate-400 font-normal">按 Q 隱藏</span>
             </div>
-            <ul id="overlay-queue-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-2 text-sm"></ul>
+            <ul id="overlay-queue-list" class="flex-1 overflow-y-auto p-4 flex flex-col gap-3 text-base"></ul>
         </div>
 
-        <!-- 左下角快捷鍵提示 -->
+        <!-- 左下角快捷鍵提示 (幾秒後自動淡出) -->
         <div class="help-panel" id="help-panel">
-            <div class="mb-2 font-bold text-white">🎛️ 遙控器快捷鍵 (3秒後隱藏)</div>
-            <div><span class="help-key">Enter</span> 切歌 (下一首)</div>
-            <div><span class="help-key">Space</span> 暫停 / 播放</div>
-            <div><span class="help-key">←</span> <span class="help-key">→</span> 快退 / 快進 10 秒</div>
-            <div><span class="help-key">↑</span> <span class="help-key">↓</span> 音樂音量大小</div>
-            <div><span class="help-key">Q</span> 顯示/隱藏 已點歌曲</div>
-            <div class="mt-2 text-slate-400 text-xs border-t border-slate-600 pt-2">
-                <span class="help-key">+</span> <span class="help-key">-</span> 升降調 (YT模式不支援)<br>
-                <span class="help-key">1</span> <span class="help-key">2</span> 男/女調 (YT模式不支援)<br>
-                <span class="help-key">M</span> 麥克風音量 (需外接混音)
+            <div class="mb-3 font-bold text-white text-lg border-b border-slate-600 pb-2">🎛️ 鍵盤遙控器</div>
+            <div class="mb-2"><span class="help-key">Enter</span> 切換下一首</div>
+            <div class="mb-2"><span class="help-key">Space</span> 暫停 / 播放</div>
+            <div class="mb-2"><span class="help-key">←</span> <span class="help-key">→</span> 快退 / 快進 10 秒</div>
+            <div class="mb-2"><span class="help-key">↑</span> <span class="help-key">↓</span> 音樂音量大小</div>
+            <div class="mb-2"><span class="help-key">Q</span> 查看已點歌曲清單</div>
+            <div class="mt-3 text-slate-400 text-sm pt-2">
+                <span class="help-key">Esc</span> 結束歡唱，回到點歌台
             </div>
         </div>
     </div>
@@ -145,39 +162,40 @@
             { name: "七里香", artist: "周杰倫", ytId: "Bbp9ZaJT_eA" },
             { name: "倒帶", artist: "蔡依林", ytId: "wJvEbz-A1hQ" },
             { name: "死了都要愛", artist: "信樂團", ytId: "4uE-Mtye0z8" },
-            { name: "後來", artist: "劉若英", ytId: "qQEoZttq91U" }
+            { name: "後來", artist: "劉若英", ytId: "qQEoZttq91U" },
+            { name: "痴心絕對", artist: "李聖傑", ytId: "x1cZ5I692Ew" },
+            { name: "如果你也聽說", artist: "張惠妹", ytId: "x0-u_yS7mHw" }
         ];
 
-        // 產生一鍵點歌按鈕
         mockData.forEach(song => {
             const btn = document.createElement('button');
-            btn.className = "bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg p-3 text-left transition-colors flex flex-col";
-            btn.innerHTML = `<span class="text-cyan-300 font-bold">${song.name}</span><span class="text-slate-400 text-sm mt-1">${song.artist}</span>`;
+            btn.className = "bg-slate-700/50 hover:bg-slate-600 border border-slate-600 rounded-xl p-4 text-left transition-colors flex flex-col shadow-md group";
+            btn.innerHTML = `<span class="text-cyan-300 font-bold text-xl group-hover:text-cyan-200 transition-colors">${song.name}</span><span class="text-slate-400 text-base mt-2 flex items-center gap-1"><span class="material-icons text-sm">mic</span> ${song.artist}</span>`;
             btn.onclick = () => addToQueue(song.name, song.ytId);
             document.getElementById('mock-songs').appendChild(btn);
         });
 
-        // 網址點歌
+        // 網址點歌 (自動抓歌名)
         async function addSong() {
             const input = document.getElementById('yt-input');
             const url = input.value.trim();
             if (!url) return;
             const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
-            if (!match) { showToast("無效的 YouTube 網址"); return; }
+            if (!match) { alert("無法辨識的 YouTube 網址！"); return; }
             
             const vid = match[1];
             const btn = document.getElementById('add-btn');
-            btn.innerHTML = `讀取中...`; btn.disabled = true;
+            btn.innerHTML = `<span class="material-icons animate-spin">sync</span> 讀取中...`; btn.disabled = true;
 
             try {
                 const res = await fetch(`https://noembed.com/embed?url=https://www.youtube.com/watch?v=${vid}`);
                 const data = await res.json();
-                addToQueue(data.title || `新歌曲 (${vid})`, vid);
+                addToQueue(data.title || `YouTube 歌曲 (${vid})`, vid);
                 input.value = '';
             } catch (e) {
-                addToQueue(`新歌曲 (${vid})`, vid);
+                addToQueue(`YouTube 歌曲 (${vid})`, vid);
             } finally {
-                btn.innerHTML = `<span class="material-icons">add</span> 加入`; btn.disabled = false;
+                btn.innerHTML = `<span class="material-icons">add_to_queue</span> 加入歌單`; btn.disabled = false;
             }
         }
 
@@ -185,7 +203,7 @@
             songQueue.push({ name, ytId });
             updateQueueUI();
             
-            // 如果是在 KTV 模式且沒在播歌，馬上播
+            // 如果在 KTV 模式且待機中，加入就馬上播
             if (isKtvMode && !currentSong && songQueue.length > 0) {
                 playNextInKTV();
             }
@@ -198,26 +216,29 @@
 
         // 更新點歌台與 KTV 內的歌單畫面
         function updateQueueUI() {
-            // 更新點歌台
             const selList = document.getElementById('selection-queue-list');
             document.getElementById('queue-count').innerText = songQueue.length;
-            document.getElementById('start-ktv-btn').disabled = songQueue.length === 0; // 沒歌不能按開始
+            document.getElementById('start-ktv-btn').disabled = songQueue.length === 0;
             
-            // 更新 KTV 內面板
             const ktvList = document.getElementById('overlay-queue-list');
             
             selList.innerHTML = ''; ktvList.innerHTML = '';
             if (songQueue.length === 0) {
-                selList.innerHTML = `<div class="text-slate-500 text-center mt-10">尚無歌曲</div>`;
+                const emptyHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-500 gap-4 opacity-50 mt-10"><span class="material-icons text-6xl">music_off</span><p class="text-xl">目前沒有排隊歌曲</p></div>`;
+                selList.innerHTML = emptyHTML;
                 ktvList.innerHTML = `<div class="text-slate-500 text-center mt-10">排隊清單已空</div>`;
                 return;
             }
 
             songQueue.forEach((song, index) => {
+                const isNext = index === 0;
                 const html = `
-                    <div class="flex justify-between items-center p-3 rounded bg-slate-800 border border-slate-700">
-                        <span class="text-white truncate pr-2"><span class="text-cyan-500 mr-2">${index+1}.</span>${song.name}</span>
-                        <button onclick="removeSong(${index})" class="bg-rose-600 hover:bg-rose-500 text-white text-xs px-2 py-1 rounded shrink-0">刪除</button>
+                    <div class="flex justify-between items-center p-4 rounded-xl ${isNext ? 'bg-cyan-900/40 border-cyan-500/50 border' : 'bg-slate-800 border border-slate-700'} shadow-md">
+                        <div class="flex items-center gap-3 overflow-hidden">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full ${isNext ? 'bg-cyan-500' : 'bg-slate-700'} text-white flex items-center justify-center font-bold">${index + 1}</div>
+                            <span class="text-white font-bold truncate text-lg">${song.name}</span>
+                        </div>
+                        <button onclick="removeSong(${index})" class="bg-rose-600 hover:bg-rose-500 text-white px-3 py-1.5 rounded-lg shrink-0 font-bold ml-2 transition-colors">刪除</button>
                     </div>`;
                 selList.insertAdjacentHTML('beforeend', html);
                 ktvList.insertAdjacentHTML('beforeend', html);
@@ -226,7 +247,6 @@
 
         // --- 核心播放控制 ---
 
-        // 進入全螢幕 KTV 模式
         function startKTV() {
             if (songQueue.length === 0) return;
             
@@ -234,36 +254,34 @@
             document.getElementById('ktv-mode').style.display = 'block';
             isKtvMode = true;
 
-            // 請求全螢幕
             if (document.documentElement.requestFullscreen) {
                 document.documentElement.requestFullscreen().catch(err => console.log(err));
             }
 
-            // 隱藏快捷鍵提示
-            setTimeout(() => { document.getElementById('help-panel').style.display = 'none'; }, 5000);
+            // 8 秒後自動隱藏快捷鍵提示
+            const helpPanel = document.getElementById('help-panel');
+            helpPanel.style.opacity = '1';
+            setTimeout(() => { helpPanel.style.opacity = '0'; }, 8000);
 
             playNextInKTV();
         }
 
-        // 切歌或播完時的邏輯
         function handleSkipOrEnd() {
             if (songQueue.length > 0) {
                 playNextInKTV();
             } else {
-                exitKTV(); // 沒歌了，回到點歌台
+                exitKTV(); // 沒歌了，自動回到點歌台
             }
         }
 
-        // 播放下一首
         function playNextInKTV() {
             currentSong = songQueue.shift();
             updateQueueUI();
             document.getElementById('now-playing-title').innerText = currentSong.name;
             if (isPlayerReady) player.loadVideoById(currentSong.ytId);
-            showToast("開始播放");
+            showToast("▶️ 開始播放");
         }
 
-        // 退出 KTV 模式
         function exitKTV() {
             currentSong = null;
             isKtvMode = false;
@@ -278,7 +296,7 @@
             document.getElementById('overlay-queue').classList.remove('open');
         }
 
-        // 監聽 ESC 退出全螢幕事件，同步回到點歌台
+        // 監聽 ESC 退出全螢幕事件
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement && isKtvMode) {
                 exitKTV();
@@ -297,9 +315,7 @@
 
         document.addEventListener('keydown', (e) => {
             if (!isKtvMode || !isPlayerReady) return;
-            
-            // 如果正在輸入網址(在某些特殊情況下)，不觸發快捷鍵
-            if (document.activeElement.tagName === 'INPUT') return;
+            if (document.activeElement.tagName === 'INPUT') return; // 在輸入框時不觸發
 
             switch(e.code) {
                 case 'Enter': // 切歌
@@ -322,42 +338,20 @@
                     player.seekTo(player.getCurrentTime() - 10, true);
                     showToast("⏪ 快退 10 秒");
                     break;
-                case 'ArrowUp': // 增加音樂音量
+                case 'ArrowUp': // 增加音量
                     e.preventDefault();
                     currentVolume = Math.min(100, currentVolume + 10);
                     player.setVolume(currentVolume);
-                    showToast(`🔊 音樂音量: ${currentVolume}%`);
+                    showToast(`🔊 音量: ${currentVolume}%`);
                     break;
-                case 'ArrowDown': // 降低音樂音量
+                case 'ArrowDown': // 降低音量
                     e.preventDefault();
                     currentVolume = Math.max(0, currentVolume - 10);
                     player.setVolume(currentVolume);
-                    showToast(`🔉 音樂音量: ${currentVolume}%`);
+                    showToast(`🔉 音量: ${currentVolume}%`);
                     break;
                 case 'KeyQ': // 顯示/隱藏已點歌曲
-                    const panel = document.getElementById('overlay-queue');
-                    panel.classList.toggle('open');
-                    break;
-                
-                // --- 以下為模擬提示 (YouTube 模式限制) ---
-                case 'Equal': // '+' 鍵 (升調)
-                case 'NumpadAdd':
-                    showToast("⚠️ YT模式不支援升降調");
-                    break;
-                case 'Minus': // '-' 鍵 (降調)
-                case 'NumpadSubtract':
-                    showToast("⚠️ YT模式不支援升降調");
-                    break;
-                case 'Digit1':
-                case 'Numpad1':
-                    showToast("👱‍♂️ 男調 (YT模式不支援)");
-                    break;
-                case 'Digit2':
-                case 'Numpad2':
-                    showToast("👩 女調 (YT模式不支援)");
-                    break;
-                case 'KeyM':
-                    showToast("🎤 麥克風音量需硬體調整");
+                    document.getElementById('overlay-queue').classList.toggle('open');
                     break;
             }
         });
